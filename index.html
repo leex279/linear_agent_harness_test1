@@ -100,10 +100,95 @@
         .timer-display {
             text-shadow: 0 0 20px rgba(255, 99, 71, 0.3);
         }
+
+        /* Session Type Label */
+        .session-label {
+            font-size: 18px;
+            font-weight: 500;
+            color: #999;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Button Container */
+        .controls {
+            margin-top: 40px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Primary Button (Start/Pause) */
+        .btn-primary {
+            background-color: #ff6347;
+            color: #ffffff;
+            padding: 15px 40px;
+            font-size: 18px;
+        }
+
+        .btn-primary:hover {
+            background-color: #ff7a5c;
+        }
+
+        /* Secondary Buttons */
+        .btn-secondary {
+            background-color: #2a2a2a;
+            color: #ffffff;
+            border: 2px solid #444;
+        }
+
+        .btn-secondary:hover {
+            background-color: #333;
+            border-color: #555;
+        }
+
+        /* Responsive Buttons */
+        @media (max-width: 480px) {
+            .controls {
+                gap: 10px;
+            }
+
+            .btn {
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+
+            .btn-primary {
+                padding: 12px 32px;
+                font-size: 16px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="session-label" id="session-label">Focus Time</div>
         <div class="timer-wrapper">
             <!-- SVG Progress Ring -->
             <svg class="progress-ring" viewBox="0 0 300 300">
@@ -127,12 +212,23 @@
             <!-- Timer Display -->
             <div class="timer-display" id="timer-display">25:00</div>
         </div>
+
+        <!-- Control Buttons -->
+        <div class="controls">
+            <button class="btn btn-primary" id="start-pause-btn">Start</button>
+            <button class="btn btn-secondary" id="reset-btn">Reset</button>
+            <button class="btn btn-secondary" id="skip-btn">Skip</button>
+        </div>
     </div>
 
     <script>
-        // Initialize timer
+        // DOM Elements
         const timerDisplay = document.getElementById('timer-display');
         const progressCircle = document.getElementById('progress-circle');
+        const sessionLabel = document.getElementById('session-label');
+        const startPauseBtn = document.getElementById('start-pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const skipBtn = document.getElementById('skip-btn');
 
         // Calculate circle circumference for progress animation
         const radius = 140;
@@ -142,9 +238,25 @@
         progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
         progressCircle.style.strokeDashoffset = '0';
 
-        // Initial state: 25 minutes (1500 seconds)
-        const POMODORO_DURATION = 25 * 60; // 25 minutes in seconds
+        // Session durations (in seconds)
+        const POMODORO_DURATION = 25 * 60; // 25 minutes
+        const SHORT_BREAK_DURATION = 5 * 60; // 5 minutes
+        const LONG_BREAK_DURATION = 15 * 60; // 15 minutes
+
+        // Session types
+        const SESSION_TYPES = {
+            POMODORO: 'pomodoro',
+            SHORT_BREAK: 'short_break',
+            LONG_BREAK: 'long_break'
+        };
+
+        // Timer state
+        let currentSession = SESSION_TYPES.POMODORO;
         let timeRemaining = POMODORO_DURATION;
+        let totalTime = POMODORO_DURATION;
+        let isRunning = false;
+        let timerInterval = null;
+        let pomodoroCount = 0;
 
         // Format time for display (MM:SS)
         function formatTime(seconds) {
@@ -160,9 +272,142 @@
             progressCircle.style.strokeDashoffset = offset;
         }
 
+        // Update session label
+        function updateSessionLabel() {
+            switch (currentSession) {
+                case SESSION_TYPES.POMODORO:
+                    sessionLabel.textContent = 'Focus Time';
+                    progressCircle.style.stroke = '#ff6347';
+                    break;
+                case SESSION_TYPES.SHORT_BREAK:
+                    sessionLabel.textContent = 'Short Break';
+                    progressCircle.style.stroke = '#4CAF50';
+                    break;
+                case SESSION_TYPES.LONG_BREAK:
+                    sessionLabel.textContent = 'Long Break';
+                    progressCircle.style.stroke = '#2196F3';
+                    break;
+            }
+        }
+
+        // Update display
+        function updateDisplay() {
+            timerDisplay.textContent = formatTime(timeRemaining);
+            updateProgress(timeRemaining, totalTime);
+        }
+
+        // Start timer countdown
+        function startTimer() {
+            if (isRunning) return;
+
+            isRunning = true;
+            startPauseBtn.textContent = 'Pause';
+
+            timerInterval = setInterval(() => {
+                if (timeRemaining > 0) {
+                    timeRemaining--;
+                    updateDisplay();
+                } else {
+                    // Timer complete
+                    stopTimer();
+                    handleSessionComplete();
+                }
+            }, 1000);
+        }
+
+        // Pause timer
+        function pauseTimer() {
+            if (!isRunning) return;
+
+            isRunning = false;
+            startPauseBtn.textContent = 'Start';
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        // Stop timer (internal use)
+        function stopTimer() {
+            isRunning = false;
+            startPauseBtn.textContent = 'Start';
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        // Reset timer to current session's duration
+        function resetTimer() {
+            stopTimer();
+
+            switch (currentSession) {
+                case SESSION_TYPES.POMODORO:
+                    timeRemaining = POMODORO_DURATION;
+                    totalTime = POMODORO_DURATION;
+                    break;
+                case SESSION_TYPES.SHORT_BREAK:
+                    timeRemaining = SHORT_BREAK_DURATION;
+                    totalTime = SHORT_BREAK_DURATION;
+                    break;
+                case SESSION_TYPES.LONG_BREAK:
+                    timeRemaining = LONG_BREAK_DURATION;
+                    totalTime = LONG_BREAK_DURATION;
+                    break;
+            }
+
+            updateDisplay();
+        }
+
+        // Skip to next session
+        function skipSession() {
+            stopTimer();
+
+            if (currentSession === SESSION_TYPES.POMODORO) {
+                pomodoroCount++;
+                // After 4 pomodoros, take a long break
+                if (pomodoroCount % 4 === 0) {
+                    currentSession = SESSION_TYPES.LONG_BREAK;
+                    timeRemaining = LONG_BREAK_DURATION;
+                    totalTime = LONG_BREAK_DURATION;
+                } else {
+                    currentSession = SESSION_TYPES.SHORT_BREAK;
+                    timeRemaining = SHORT_BREAK_DURATION;
+                    totalTime = SHORT_BREAK_DURATION;
+                }
+            } else {
+                // After any break, go back to pomodoro
+                currentSession = SESSION_TYPES.POMODORO;
+                timeRemaining = POMODORO_DURATION;
+                totalTime = POMODORO_DURATION;
+            }
+
+            updateSessionLabel();
+            updateDisplay();
+        }
+
+        // Handle session completion
+        function handleSessionComplete() {
+            // Auto-advance to next session
+            skipSession();
+        }
+
+        // Event Listeners
+        startPauseBtn.addEventListener('click', () => {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            resetTimer();
+        });
+
+        skipBtn.addEventListener('click', () => {
+            skipSession();
+        });
+
         // Initialize display
-        timerDisplay.textContent = formatTime(timeRemaining);
-        updateProgress(timeRemaining, POMODORO_DURATION);
+        updateSessionLabel();
+        updateDisplay();
     </script>
 </body>
 </html>
