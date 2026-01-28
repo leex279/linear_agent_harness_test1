@@ -1,0 +1,42 @@
+{
+  "project_id": "2b46221c-2dfe-4611-81b3-1555b72ee46a",
+  "project_name": "Pomodoro Timer App",
+  "project_slug": "df1f6a4fe558",
+  "team_id": "95ea14cb-1c00-483e-8904-23fd6382b83f",
+  "team_key": "DIY",
+  "team_name": "DIY Smart Code",
+  "created_at": "2026-01-28T11:06:25.061Z",
+  "issues": {
+    "timer_display": {
+      "id": "DIY-62",
+      "title": "Timer Display",
+      "status": "Backlog",
+      "priority": "High"
+    },
+    "timer_controls": {
+      "id": "DIY-63",
+      "title": "Timer Controls",
+      "status": "Backlog",
+      "priority": "High"
+    },
+    "session_types": {
+      "id": "DIY-64",
+      "title": "Session Types",
+      "status": "Backlog",
+      "priority": "High"
+    },
+    "session_counter": {
+      "id": "DIY-65",
+      "title": "Session Counter",
+      "status": "Backlog",
+      "priority": "High"
+    },
+    "audio_notification": {
+      "id": "DIY-66",
+      "title": "Audio Notification",
+      "status": "Backlog",
+      "priority": "High"
+    }
+  },
+  "meta_issue_id": "DIY-67"
+}
