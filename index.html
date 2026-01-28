@@ -184,10 +184,105 @@
                 font-size: 16px;
             }
         }
+
+        /* Session Counter Styles */
+        .session-counter {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border-radius: 12px;
+            border: 2px solid #444;
+        }
+
+        .counter-text {
+            font-size: 24px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 15px;
+            letter-spacing: 0.05em;
+        }
+
+        .counter-text .count-number {
+            color: #ff6347;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .counter-dots {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .counter-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #ff6347;
+            box-shadow: 0 0 10px rgba(255, 99, 71, 0.5);
+            transition: all 0.3s ease;
+            animation: pulse 0.5s ease;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .counter-dot.empty {
+            background-color: transparent;
+            border: 2px solid #444;
+            box-shadow: none;
+        }
+
+        @media (max-width: 480px) {
+            .session-counter {
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+
+            .counter-text {
+                font-size: 20px;
+            }
+
+            .counter-text .count-number {
+                font-size: 28px;
+            }
+
+            .counter-dots {
+                gap: 8px;
+            }
+
+            .counter-dot {
+                width: 16px;
+                height: 16px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Session Counter -->
+        <div class="session-counter">
+            <div class="counter-text">
+                <span class="count-number" id="count-number">0</span> Pomodoros Today
+            </div>
+            <div class="counter-dots" id="counter-dots">
+                <!-- Dots will be dynamically generated -->
+            </div>
+        </div>
+
         <div class="session-label" id="session-label">Focus Time</div>
         <div class="timer-wrapper">
             <!-- SVG Progress Ring -->
@@ -229,6 +324,8 @@
         const startPauseBtn = document.getElementById('start-pause-btn');
         const resetBtn = document.getElementById('reset-btn');
         const skipBtn = document.getElementById('skip-btn');
+        const countNumber = document.getElementById('count-number');
+        const counterDots = document.getElementById('counter-dots');
 
         // Calculate circle circumference for progress animation
         const radius = 140;
@@ -257,6 +354,7 @@
         let isRunning = false;
         let timerInterval = null;
         let pomodoroCount = 0;
+        let sessionPomodoroCount = 0; // Count for current session (tracks completed focus sessions)
 
         // Format time for display (MM:SS)
         function formatTime(seconds) {
@@ -294,6 +392,66 @@
         function updateDisplay() {
             timerDisplay.textContent = formatTime(timeRemaining);
             updateProgress(timeRemaining, totalTime);
+        }
+
+        // LocalStorage functions for session counter
+        function getTodayDate() {
+            const today = new Date();
+            return today.toISOString().split('T')[0]; // YYYY-MM-DD format
+        }
+
+        function loadPomodoroCount() {
+            const storedDate = localStorage.getItem('pomodoroDate');
+            const todayDate = getTodayDate();
+
+            // Check if it's a new day
+            if (storedDate !== todayDate) {
+                // Reset counter for new day
+                localStorage.setItem('pomodoroDate', todayDate);
+                localStorage.setItem('pomodoroCount', '0');
+                return 0;
+            }
+
+            // Load existing count from today
+            const count = parseInt(localStorage.getItem('pomodoroCount') || '0', 10);
+            return count;
+        }
+
+        function savePomodoroCount(count) {
+            localStorage.setItem('pomodoroCount', count.toString());
+            localStorage.setItem('pomodoroDate', getTodayDate());
+        }
+
+        function incrementPomodoroCount() {
+            sessionPomodoroCount++;
+            savePomodoroCount(sessionPomodoroCount);
+            updateCounterDisplay();
+        }
+
+        function updateCounterDisplay() {
+            // Update counter number
+            countNumber.textContent = sessionPomodoroCount;
+
+            // Clear existing dots
+            counterDots.innerHTML = '';
+
+            // Create dots (show up to 10, then just show the number)
+            const displayDots = Math.min(sessionPomodoroCount, 10);
+            for (let i = 0; i < displayDots; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'counter-dot';
+                counterDots.appendChild(dot);
+            }
+
+            // If more than 10, add a text indicator
+            if (sessionPomodoroCount > 10) {
+                const moreText = document.createElement('span');
+                moreText.style.color = '#999';
+                moreText.style.fontSize = '14px';
+                moreText.style.marginLeft = '8px';
+                moreText.textContent = `...`;
+                counterDots.appendChild(moreText);
+            }
         }
 
         // Start timer countdown
@@ -384,6 +542,11 @@
 
         // Handle session completion
         function handleSessionComplete() {
+            // If a pomodoro (focus session) was completed, increment the counter
+            if (currentSession === SESSION_TYPES.POMODORO) {
+                incrementPomodoroCount();
+            }
+
             // Auto-advance to next session
             skipSession();
         }
@@ -408,6 +571,22 @@
         // Initialize display
         updateSessionLabel();
         updateDisplay();
+
+        // Initialize session counter from localStorage
+        sessionPomodoroCount = loadPomodoroCount();
+        updateCounterDisplay();
+
+        // Check for date change periodically (every minute)
+        setInterval(() => {
+            const storedDate = localStorage.getItem('pomodoroDate');
+            const todayDate = getTodayDate();
+            if (storedDate !== todayDate) {
+                // New day detected, reset counter
+                sessionPomodoroCount = 0;
+                savePomodoroCount(0);
+                updateCounterDisplay();
+            }
+        }, 60000); // Check every minute
     </script>
 </body>
 </html>
