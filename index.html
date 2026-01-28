@@ -313,6 +313,9 @@
             <button class="btn btn-primary" id="start-pause-btn">Start</button>
             <button class="btn btn-secondary" id="reset-btn">Reset</button>
             <button class="btn btn-secondary" id="skip-btn">Skip</button>
+            <button class="btn btn-secondary" id="audio-toggle-btn">
+                <span id="audio-icon">🔊</span> Audio
+            </button>
         </div>
     </div>
 
@@ -326,6 +329,8 @@
         const skipBtn = document.getElementById('skip-btn');
         const countNumber = document.getElementById('count-number');
         const counterDots = document.getElementById('counter-dots');
+        const audioToggleBtn = document.getElementById('audio-toggle-btn');
+        const audioIcon = document.getElementById('audio-icon');
 
         // Calculate circle circumference for progress animation
         const radius = 140;
@@ -355,6 +360,7 @@
         let timerInterval = null;
         let pomodoroCount = 0;
         let sessionPomodoroCount = 0; // Count for current session (tracks completed focus sessions)
+        let audioEnabled = true; // Audio notification enabled by default
 
         // Format time for display (MM:SS)
         function formatTime(seconds) {
@@ -392,6 +398,72 @@
         function updateDisplay() {
             timerDisplay.textContent = formatTime(timeRemaining);
             updateProgress(timeRemaining, totalTime);
+        }
+
+        // Audio notification function using Web Audio API
+        function playCompletionSound() {
+            if (!audioEnabled) return;
+
+            try {
+                // Create audio context
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Create oscillator for the tone
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                // Connect nodes
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // Configure the sound - gentle chime
+                oscillator.type = 'sine'; // Sine wave for smooth tone
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start at 800Hz
+                oscillator.frequency.exponentialRampToValueAtTime(600, audioContext.currentTime + 0.1); // Descend to 600Hz
+
+                // Gentle volume envelope
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05); // Fade in
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8); // Fade out
+
+                // Play the sound
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.8);
+
+                // Clean up after sound finishes
+                setTimeout(() => {
+                    audioContext.close();
+                }, 1000);
+            } catch (error) {
+                console.error('Error playing audio:', error);
+            }
+        }
+
+        // LocalStorage functions for audio preference
+        function loadAudioPreference() {
+            const stored = localStorage.getItem('audioEnabled');
+            // Default to enabled if not set
+            return stored === null ? true : stored === 'true';
+        }
+
+        function saveAudioPreference(enabled) {
+            localStorage.setItem('audioEnabled', enabled.toString());
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            saveAudioPreference(audioEnabled);
+            updateAudioButton();
+        }
+
+        function updateAudioButton() {
+            if (audioEnabled) {
+                audioIcon.textContent = '🔊';
+                audioToggleBtn.style.opacity = '1';
+            } else {
+                audioIcon.textContent = '🔇';
+                audioToggleBtn.style.opacity = '0.6';
+            }
         }
 
         // LocalStorage functions for session counter
@@ -542,6 +614,9 @@
 
         // Handle session completion
         function handleSessionComplete() {
+            // Play completion sound
+            playCompletionSound();
+
             // If a pomodoro (focus session) was completed, increment the counter
             if (currentSession === SESSION_TYPES.POMODORO) {
                 incrementPomodoroCount();
@@ -568,9 +643,17 @@
             skipSession();
         });
 
+        audioToggleBtn.addEventListener('click', () => {
+            toggleAudio();
+        });
+
         // Initialize display
         updateSessionLabel();
         updateDisplay();
+
+        // Initialize audio preference from localStorage
+        audioEnabled = loadAudioPreference();
+        updateAudioButton();
 
         // Initialize session counter from localStorage
         sessionPomodoroCount = loadPomodoroCount();
